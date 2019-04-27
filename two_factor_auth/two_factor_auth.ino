@@ -52,8 +52,8 @@ int matchedPIN;
 
 int state;
 
-// This will let us know which LEDs are lit
-int LED_STATE;
+#define WRONG_PIN_ATTEMPT_LIMIT   2
+int pinAttempts;
 
 uint8_t delayTime;
 
@@ -96,6 +96,7 @@ void setup() {
   matchedRFID = 0;
   matchedPIN = 0;
   checkRFID = false;
+  pinAttempts = 0;
 }
 
 
@@ -139,11 +140,16 @@ void checkCode() {
         nums[1] == '2' &&
         nums[2] == '3' &&
         nums[3] == '4') {
-      approvedCard(); 
+      approvedPin(); 
       matchedPIN = true;
       state = 2;
   } else {
-      wrongPin();
+      pinAttempts++;
+      if (pinAttempts >= 2) {
+        state = 3;
+      } else {
+        wrongPin();
+      }
       matchedPIN = false;
   }
 }
@@ -222,11 +228,19 @@ void wrongPin() {
   Serial.println("Wrong Pin");
 }
 
+void backToStart() {
+  lcd.setCursor(0,0);
+  lcd.print("BAD CREDENTIALS ");
+  lcd.setCursor(0,1);
+  lcd.print("BACK TO START   ");
+  myTimer();
+}
+
 void grantAccess() {
   lcd.setCursor(0,0);
   lcd.print("GRANTED ACCESS  ");
   lcd.setCursor(0,1);
-  lcd.print("PLS HIRE ME     ");
+  lcd.print("PLEASE HIRE ME  ");
 }
 
 void loop() {
@@ -263,10 +277,15 @@ void loop() {
         Serial.println(customKey);
       }
       break;
-     case 2:
+    case 2:
        grantAccess();
        break;     
-  }
+    case 3:
+      backToStart();
+      PCICR |= 1;
+      askCard();
+      state = 0;
+      break;  }
   
 }
 
