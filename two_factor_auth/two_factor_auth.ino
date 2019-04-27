@@ -16,6 +16,16 @@
 #include <SPI.h>
 #include <MFRC522.h>
 #include <Keypad.h>
+#include <LiquidCrystal.h>
+
+#define LCD_RS      2
+#define LCD_EN      3
+#define LCD_D4      4
+#define LCD_D5      5
+#define LCD_D6      6
+#define LCD_D7      7
+
+LiquidCrystal lcd(LCD_RS, LCD_EN, LCD_D4, LCD_D5, LCD_D6, LCD_D7);
 
 #define RST_PIN         9           // Configurable, see typical pin layout above
 #define SS_PIN          10          // Configurable, see typical pin layout above
@@ -55,14 +65,16 @@ unsigned long prevMillis = 0;
 void setup() {
   keyIdx = 0;
   Serial.begin(9600); // Initialize serial communications with the PC
-  while (!Serial);    // Do nothing if no serial port is opened (added for Arduinos based on ATMEGA32U4)
   SPI.begin();        // Init SPI bus
   mfrc522.PCD_Init(); // Init MFRC522 card
+
+  lcd.begin(16,2);
+  lcd.print("Hello");
 
   
   // put your setup code here, to run once:
   //set the digital pins 2-7 to outputs
-  DDRD = DDRD  | 0b11111100;
+//  DDRD = 0b11111100;
 
   //making sure that digital pin 8 is an input and others are out
   DDRB &= ~1;
@@ -115,12 +127,25 @@ void readRFID() {
 }
 
 void checkCode() {
-  if (nums[0] == 1 &&
-        nums[1] == 2 &&
-        nums[2] == 3 &&
-        nums[3] == 4) {
-      PORTD |= 1 <<3;
+  if (nums[0] == '1' &&
+        nums[1] == '2' &&
+        nums[2] == '3' &&
+        nums[3] == '4') {
+      Serial.println(F("WE GOT A MATCH BABY"));
+  } else {
+      Serial.println(F("... lame I thought these passwords were compatible..."));
   }
+}
+
+void numsToSerial() {
+  Serial.println(F("NUMS:"));
+  Serial.print(F("{"));
+  for(int i = 0; i < 4; i++) {
+    Serial.print(nums[i]);
+    Serial.print(F(","));
+  }
+  Serial.print(F("}"));
+  Serial.println();
 }
 
 void loop() {
@@ -128,14 +153,19 @@ void loop() {
   
   if (customKey){
     nums[keyIdx] = customKey;
+    Serial.println(F("Value Pressed: "));
+    Serial.print(customKey);
 
+    Serial.println(F("keyIdx is currently:"));
+    Serial.print(keyIdx);
+
+    numsToSerial();
     if (keyIdx <= 2) {
       keyIdx++;
     } else {
       keyIdx = 0;
     }
 
-    Serial.println(keyIdx);
     checkCode();
     Serial.println(customKey);
   }
@@ -149,8 +179,6 @@ void loop() {
     PCMSK0 |= 1;
   }
   
-  //because 0 and 1 are not being used
-  PORTD = matchedRFID << 2;
 }
 
 void myTimer() {
