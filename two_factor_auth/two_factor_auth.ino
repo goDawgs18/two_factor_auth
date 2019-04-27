@@ -127,11 +127,9 @@ void readRFID() {
     approvedCard();
     matchedRFID = 1;
     state = 1;
-    Serial.println(F("APPROVED USERS RFID SCANNED"));
   } else {
     wrongCard();
     matchedRFID = 0;
-    Serial.println(F("UNAPPROVED USER ATTEMPTED SCAN"));
   }
 }
 
@@ -260,11 +258,11 @@ void loop() {
       askPin();
       if (customKey){
         nums[keyIdx] = customKey;
-        Serial.print(F("Value Pressed: "));
-        Serial.println(customKey);
-    
-        Serial.print(F("keyIdx is currently:"));
-        Serial.println(keyIdx);
+//        Serial.print(F("Value Pressed: "));
+//        Serial.println(customKey);
+//    
+//        Serial.print(F("keyIdx is currently:"));
+//        Serial.println(keyIdx);
     
         numsToSerial();
         if (keyIdx <= 2) {
