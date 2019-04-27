@@ -48,10 +48,14 @@ Keypad customKeypad = Keypad(makeKeymap(hexaKeys), rowPins, colPins, ROWS, COLS)
 
 int matchedRFID;
 
+int matchedPIN;
+
+int state;
+
 // This will let us know which LEDs are lit
 int LED_STATE;
 
-volatile uint8_t delayTime;
+uint8_t delayTime;
 
 int checkRFID;
 int timeoutRFID;
@@ -69,8 +73,7 @@ void setup() {
   mfrc522.PCD_Init(); // Init MFRC522 card
 
   lcd.begin(16,2);
-  lcd.print("Hello");
-
+  askCard();
   
   // put your setup code here, to run once:
   //set the digital pins 2-7 to outputs
@@ -82,14 +85,16 @@ void setup() {
   //sets all the analog pins for input for pin pad
   DDRC &= 0;
   
-  delayTime = 100;
+  delayTime = 255;
   timeoutRFID = 0;
   //setting the first bit PCIE0 on to enable PCINT0
   PCICR |= 1;
 
   //making sure that the Digital pin 8 throws interrupt
   PCMSK0 |= 1;
-  
+
+  matchedRFID = 0;
+  matchedPIN = 0;
   checkRFID = false;
 }
 
@@ -118,11 +123,14 @@ void readRFID() {
         mfrc522.uid.uidByte[1] == 0xF6 &&
         mfrc522.uid.uidByte[2] == 0xF0 &&
         mfrc522.uid.uidByte[3] == 0x0A) {
+    approvedCard();
+    matchedRFID = 1;
+    state = 1;
     Serial.println(F("APPROVED USERS RFID SCANNED"));
-    matchedRFID = true;
   } else {
+    wrongCard();
+    matchedRFID = 0;
     Serial.println(F("UNAPPROVED USER ATTEMPTED SCAN"));
-    matchedRFID = false;
   }
 }
 
@@ -131,9 +139,12 @@ void checkCode() {
         nums[1] == '2' &&
         nums[2] == '3' &&
         nums[3] == '4') {
-      Serial.println(F("WE GOT A MATCH BABY"));
+      approvedCard(); 
+      matchedPIN = true;
+      state = 2;
   } else {
-      Serial.println(F("... lame I thought these passwords were compatible..."));
+      wrongPin();
+      matchedPIN = false;
   }
 }
 
@@ -148,42 +159,120 @@ void numsToSerial() {
   Serial.println();
 }
 
+void askCard() {
+  lcd.setCursor(0,0);
+  lcd.print("HELLO USER,     ");
+  lcd.setCursor(0,1);
+  lcd.print("PLEASE SCAN CARD");
+}
+
+void askPin() {
+  lcd.setCursor(0,0);
+  lcd.print("Now enter PIN   ");
+  lcd.setCursor(0,1);
+  char pinStr[16] = "                ";
+  for(int i=0; i<keyIdx; i++) {
+    pinStr[i] = '*';
+  }
+  lcd.print(pinStr);
+}
+
+
+void clearScreen() {
+  lcd.setCursor(0,0);
+  lcd.print("                ");
+  lcd.setCursor(0,1);
+  lcd.print("                ");
+}
+
+void approvedCard() {
+  lcd.setCursor(0,0);
+  lcd.print(" APPROVED  CARD ");
+  lcd.setCursor(0,1);
+  lcd.print("  STAGE 1 DONE  ");
+  myTimer();
+  Serial.println(F("Approved Card Scanned"));
+}
+
+void approvedPin() {
+  lcd.setCursor(0,0);
+  lcd.print("  CORRECT  PIN  ");
+  lcd.setCursor(0,1);
+  lcd.print("  STAGE 2 DONE  ");
+  myTimer();
+  Serial.println(F("Approved pin Entered"));
+}
+
+void wrongCard() {
+  lcd.setCursor(0,0);
+  lcd.print("   WRONG CARD   ");
+  lcd.setCursor(0,1);
+  lcd.print("  RE-SCAN CARD  ");
+  myTimer();
+  Serial.println("Wrong Card");
+  askCard();
+}
+
+void wrongPin() {
+  lcd.setCursor(0,0);
+  lcd.print("   WRONG  PIN   ");
+  lcd.setCursor(0,1);
+  lcd.print("  RE-ENTER PIN  ");
+  myTimer();
+  Serial.println("Wrong Pin");
+}
+
+void grantAccess() {
+  lcd.setCursor(0,0);
+  lcd.print("GRANTED ACCESS  ");
+  lcd.setCursor(0,1);
+  lcd.print("PLS HIRE ME     ");
+}
+
 void loop() {
   char customKey = customKeypad.getKey();
-  
-  if (customKey){
-    nums[keyIdx] = customKey;
-    Serial.println(F("Value Pressed: "));
-    Serial.print(customKey);
-
-    Serial.println(F("keyIdx is currently:"));
-    Serial.print(keyIdx);
-
-    numsToSerial();
-    if (keyIdx <= 2) {
-      keyIdx++;
-    } else {
-      keyIdx = 0;
-    }
-
-    checkCode();
-    Serial.println(customKey);
-  }
-
-
   
   if (checkRFID) {
     PCMSK0 &= ~1;
     readRFID();
     checkRFID = false;
     PCMSK0 |= 1;
+    //if it found one then it should never run again
+  }
+  
+  switch (state) {
+    case 1:
+      PCICR &= ~1;
+      askPin();
+      if (customKey){
+        nums[keyIdx] = customKey;
+        Serial.print(F("Value Pressed: "));
+        Serial.println(customKey);
+    
+        Serial.print(F("keyIdx is currently:"));
+        Serial.println(keyIdx);
+    
+        numsToSerial();
+        if (keyIdx <= 2) {
+          keyIdx++;
+        } else {
+          checkCode();
+          keyIdx = 0;
+        }
+    
+        Serial.println(customKey);
+      }
+      break;
+     case 2:
+       grantAccess();
+       break;     
   }
   
 }
 
 void myTimer() {
   unsigned long currMillis = millis();
-  while ((currMillis - prevMillis) < delayTime) {
+  while ((currMillis - prevMillis) < 8000) {
     currMillis = millis();
   }
   prevMillis = currMillis;
